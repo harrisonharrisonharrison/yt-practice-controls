@@ -65,6 +65,19 @@ function attachListeners(video) {
     video.playbackRate = newSpeed;
     speedDisplay.innerText = `${newSpeed.toFixed(2)}x`;
   });
+
+  video.addEventListener('timeupdate', () => {
+    if (loopStart !== null && loopEnd !== null && loopEnd > loopStart) {
+      
+      if (video.currentTime >= loopEnd) {
+        video.currentTime = loopStart;
+      }
+      
+      if (video.currentTime < loopStart) {
+        video.currentTime = loopStart;
+      }
+    }
+  });
 }
 
 waitForElements();
