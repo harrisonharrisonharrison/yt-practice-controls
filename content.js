@@ -58,6 +58,9 @@ function attachListeners(video) {
   let loopEnd = null;
   let isDelaying = false; 
   let clicksEnabled = true;
+  
+  let currentSpeed = parseFloat(speedSlider.value);
+  let baseBpm = parseInt(bpmInput.value) / currentSpeed; 
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -88,6 +91,21 @@ function attachListeners(video) {
       countInToggle.style.backgroundColor = '#555555';
     }
   });
+  
+  speedSlider.addEventListener('input', (e) => {
+    currentSpeed = parseFloat(e.target.value);
+    video.playbackRate = currentSpeed;
+    speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+    
+    bpmInput.value = Math.round(baseBpm * currentSpeed);
+  });
+
+  bpmInput.addEventListener('change', (e) => {
+    const newBpm = parseInt(e.target.value);
+    if (!isNaN(newBpm)) {
+      baseBpm = newBpm / currentSpeed;
+    }
+  });
 
   btnA.addEventListener('click', () => {
     loopStart = video.currentTime;
@@ -108,11 +126,6 @@ function attachListeners(video) {
     btnB.innerText = 'Set B (-)';
   });
 
-  speedSlider.addEventListener('input', (e) => {
-    video.playbackRate = parseFloat(e.target.value);
-    speedDisplay.innerText = `${video.playbackRate.toFixed(2)}x`;
-  });
-
   video.addEventListener('timeupdate', () => {
     if (loopStart !== null && loopEnd !== null && loopEnd > loopStart) {
       
@@ -123,20 +136,26 @@ function attachListeners(video) {
         
         const bpm = parseInt(bpmInput.value);
         const beatsToWait = parseInt(delayInput.value);
-        const secondsPerBeat = 60 / bpm;
-        const delayMs = (beatsToWait * secondsPerBeat) * 1000;
+        
+        if (bpm > 0) {
+          const secondsPerBeat = 60 / bpm;
+          const delayMs = (beatsToWait * secondsPerBeat) * 1000;
 
-        if (clicksEnabled && beatsToWait > 0) {
-          const startTime = audioCtx.currentTime;
-          for (let i = 0; i < beatsToWait; i++) {
-            playClick(startTime + (i * secondsPerBeat), i === 0);
+          if (clicksEnabled && beatsToWait > 0) {
+            const startTime = audioCtx.currentTime;
+            for (let i = 0; i < beatsToWait; i++) {
+              playClick(startTime + (i * secondsPerBeat), i === 0);
+            }
           }
-        }
 
-        setTimeout(() => {
+          setTimeout(() => {
+            video.play();
+            isDelaying = false;
+          }, delayMs);
+        } else {
           video.play();
           isDelaying = false;
-        }, delayMs);
+        }
       }
       
       if (video.currentTime < loopStart && !isDelaying) {
