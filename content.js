@@ -25,10 +25,10 @@ function injectUI(video, anchor) {
 
       <label title="Metronome BPM">BPM:</label>
       <input type="number" id="rr-bpm" value="120" min="40" max="300" style="width: 50px;">
-      <button id="rr-metro-toggle">Off</button>
       
-      <label title="Delay before loop restarts">Delay (Beats):</label>
+      <label title="Delay before loop restarts">Count-in (Beats):</label>
       <input type="number" id="rr-delay" value="4" min="0" max="16" style="width: 40px;">
+      <button id="rr-countin-toggle">Clicks On</button>
       
       <div class="rr-divider"></div>
 
@@ -52,25 +52,24 @@ function attachListeners(video) {
   
   const bpmInput = document.querySelector('#rr-bpm');
   const delayInput = document.querySelector('#rr-delay');
-  const metroToggle = document.querySelector('#rr-metro-toggle');
+  const countInToggle = document.querySelector('#rr-countin-toggle');
 
   let loopStart = null;
   let loopEnd = null;
   let isDelaying = false; 
+  let clicksEnabled = true;
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  let isMetroPlaying = false;
-  let nextNoteTime = 0;
-  let timerID;
 
-  function playClick(time) {
+  function playClick(time, isFirstBeat) {
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     
     osc.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     
-    osc.frequency.value = 800;
+    osc.frequency.value = isFirstBeat ? 1000 : 800;
+    
     gainNode.gain.setValueAtTime(1, time);
     gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
     
@@ -78,34 +77,22 @@ function attachListeners(video) {
     osc.stop(time + 0.1);
   }
 
-  function scheduleMetronome() {
-    while (nextNoteTime < audioCtx.currentTime + 0.1) {
-      playClick(nextNoteTime);
-      const secondsPerBeat = 60.0 / parseInt(bpmInput.value);
-      nextNoteTime += secondsPerBeat;
-    }
-    timerID = setTimeout(scheduleMetronome, 25);
-  }
-
-  metroToggle.addEventListener('click', () => {
-    isMetroPlaying = !isMetroPlaying;
-    if (isMetroPlaying) {
+  countInToggle.addEventListener('click', () => {
+    clicksEnabled = !clicksEnabled;
+    if (clicksEnabled) {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      
-      metroToggle.innerText = 'On';
-      metroToggle.style.backgroundColor = '#ff4e45'; 
-      nextNoteTime = audioCtx.currentTime + 0.05;
-      scheduleMetronome();
+      countInToggle.innerText = '🔊 Clicks On';
+      countInToggle.style.backgroundColor = '#3ea6ff';
     } else {
-      metroToggle.innerText = 'Off';
-      metroToggle.style.backgroundColor = '#3ea6ff';
-      clearTimeout(timerID);
+      countInToggle.innerText = '🔇 Clicks Off';
+      countInToggle.style.backgroundColor = '#555555';
     }
   });
 
   btnA.addEventListener('click', () => {
     loopStart = video.currentTime;
     btnA.innerText = `Set A (${loopStart.toFixed(1)}s)`;
+    if (audioCtx.state === 'suspended') audioCtx.resume(); 
   });
 
   btnB.addEventListener('click', () => {
@@ -136,7 +123,15 @@ function attachListeners(video) {
         
         const bpm = parseInt(bpmInput.value);
         const beatsToWait = parseInt(delayInput.value);
-        const delayMs = (beatsToWait * (60 / bpm)) * 1000;
+        const secondsPerBeat = 60 / bpm;
+        const delayMs = (beatsToWait * secondsPerBeat) * 1000;
+
+        if (clicksEnabled && beatsToWait > 0) {
+          const startTime = audioCtx.currentTime;
+          for (let i = 0; i < beatsToWait; i++) {
+            playClick(startTime + (i * secondsPerBeat), i === 0);
+          }
+        }
 
         setTimeout(() => {
           video.play();
