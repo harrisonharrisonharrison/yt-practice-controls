@@ -18,9 +18,20 @@ function injectUI(video, anchor) {
   panel.innerHTML = `
     <div class="rr-header">Video Controls</div>
     <div class="rr-controls">
-      <button id="rr-set-a">Set A (-)</button>
-      <button id="rr-set-b">Set B (-)</button>
+      <div class="rr-btn-group">
+        <button id="rr-a-minus" title="Back 10ms">&lt;</button>
+        <button id="rr-set-a">Set A (-)</button>
+        <button id="rr-a-plus" title="Forward 10ms">&gt;</button>
+      </div>
+
+      <div class="rr-btn-group">
+        <button id="rr-b-minus" title="Back 10ms">&lt;</button>
+        <button id="rr-set-b">Set B (-)</button>
+        <button id="rr-b-plus" title="Forward 10ms">&gt;</button>
+      </div>
+
       <button id="rr-clear">Clear Loop</button>
+      
       <div class="rr-divider"></div>
 
       <label title="Metronome BPM">BPM:</label>
@@ -49,6 +60,11 @@ function attachListeners(video) {
   const btnClear = document.querySelector('#rr-clear');
   const speedSlider = document.querySelector('#rr-speed');
   const speedDisplay = document.querySelector('#rr-speed-display');
+
+  const btnAMinus = document.querySelector('#rr-a-minus');
+  const btnAPlus = document.querySelector('#rr-a-plus');
+  const btnBMinus = document.querySelector('#rr-b-minus');
+  const btnBPlus = document.querySelector('#rr-b-plus');
   
   const bpmInput = document.querySelector('#rr-bpm');
   const delayInput = document.querySelector('#rr-delay');
@@ -84,10 +100,10 @@ function attachListeners(video) {
     clicksEnabled = !clicksEnabled;
     if (clicksEnabled) {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      countInToggle.innerText = '🔊 Clicks On';
+      countInToggle.innerText = 'Clicks On';
       countInToggle.style.backgroundColor = '#3ea6ff';
     } else {
-      countInToggle.innerText = '🔇 Clicks Off';
+      countInToggle.innerText = 'Clicks Off';
       countInToggle.style.backgroundColor = '#555555';
     }
   });
@@ -109,13 +125,47 @@ function attachListeners(video) {
 
   btnA.addEventListener('click', () => {
     loopStart = video.currentTime;
-    btnA.innerText = `Set A (${loopStart.toFixed(1)}s)`;
+    btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
     if (audioCtx.state === 'suspended') audioCtx.resume(); 
   });
 
   btnB.addEventListener('click', () => {
     loopEnd = video.currentTime;
-    btnB.innerText = `Set B (${loopEnd.toFixed(1)}s)`;
+    btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
+  });
+
+  btnAMinus.addEventListener('click', () => {
+    if (loopStart !== null) {
+      loopStart = Math.max(0, loopStart - 0.01);
+      btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
+      video.currentTime = loopStart; 
+    }
+  });
+
+  btnAPlus.addEventListener('click', () => {
+    if (loopStart !== null) {
+      loopStart += 0.01;
+      if (loopEnd !== null && loopStart >= loopEnd) loopStart = loopEnd - 0.01;
+      btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
+      video.currentTime = loopStart;
+    }
+  });
+
+  btnBMinus.addEventListener('click', () => {
+    if (loopEnd !== null) {
+      loopEnd -= 0.01;
+      if (loopStart !== null && loopEnd <= loopStart) loopEnd = loopStart + 0.01;
+      btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
+      video.currentTime = loopEnd;
+    }
+  });
+
+  btnBPlus.addEventListener('click', () => {
+    if (loopEnd !== null) {
+      loopEnd += 0.01;
+      btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
+      video.currentTime = loopEnd;
+    }
   });
 
   btnClear.addEventListener('click', () => {
