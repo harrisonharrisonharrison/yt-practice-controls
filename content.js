@@ -242,6 +242,34 @@ function attachListeners(video) {
     }
   });
   
+  function handleVideoChange() {
+    loopStart = null;
+    loopEnd = null;
+    isDelaying = false;
+    
+    btnA.innerText = 'Set A (-)';
+    btnB.innerText = 'Set B (-)';
+    
+    currentSpeed = 1.0;
+    video.playbackRate = currentSpeed;
+    speedSlider.value = 1.0;
+    speedDisplay.innerText = '1.00x';
+    
+    baseBpm = 120;
+    bpmInput.value = 120;
+    delayInput.value = 4;
+    
+    clicksEnabled = true;
+    countInToggle.innerText = 'Clicks On';
+    countInToggle.style.backgroundColor = '#3ea6ff';
+    
+    loadPreset();
+  }
+
+  window.addEventListener('yt-navigate-finish', () => {
+    setTimeout(handleVideoChange, 500); 
+  });
+
   document.addEventListener('keydown', (e) => {
     const activeElement = document.activeElement.tagName.toLowerCase();
     if (activeElement === 'input' || activeElement === 'textarea') return; 
