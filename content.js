@@ -60,15 +60,15 @@ function attachListeners(video) {
   const btnClear = document.querySelector('#rr-clear');
   const speedSlider = document.querySelector('#rr-speed');
   const speedDisplay = document.querySelector('#rr-speed-display');
+  
+  const bpmInput = document.querySelector('#rr-bpm');
+  const delayInput = document.querySelector('#rr-delay');
+  const countInToggle = document.querySelector('#rr-countin-toggle');
 
   const btnAMinus = document.querySelector('#rr-a-minus');
   const btnAPlus = document.querySelector('#rr-a-plus');
   const btnBMinus = document.querySelector('#rr-b-minus');
   const btnBPlus = document.querySelector('#rr-b-plus');
-  
-  const bpmInput = document.querySelector('#rr-bpm');
-  const delayInput = document.querySelector('#rr-delay');
-  const countInToggle = document.querySelector('#rr-countin-toggle');
 
   let loopStart = null;
   let loopEnd = null;
@@ -80,13 +80,65 @@ function attachListeners(video) {
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+  
+  function getVideoId() {
+    return new URLSearchParams(window.location.search).get('v');
+  }
+
+  function savePreset() {
+    const videoId = getVideoId();
+    if (!videoId) return;
+    
+    const preset = {
+      loopStart,
+      loopEnd,
+      speed: currentSpeed,
+      baseBpm, 
+      delayBeats: delayInput.value,
+      clicksEnabled
+    };
+    
+    chrome.storage.local.set({ [videoId]: preset });
+  }
+
+  function loadPreset() {
+    const videoId = getVideoId();
+    if (!videoId) return;
+    
+    chrome.storage.local.get([videoId], (result) => {
+      const preset = result[videoId];
+      if (preset) {
+        loopStart = preset.loopStart;
+        loopEnd = preset.loopEnd;
+        if (loopStart !== null) btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
+        if (loopEnd !== null) btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
+        
+        currentSpeed = preset.speed || 1.0;
+        video.playbackRate = currentSpeed;
+        speedSlider.value = currentSpeed;
+        speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+        
+        baseBpm = preset.baseBpm || 120;
+        bpmInput.value = Math.round(baseBpm * currentSpeed);
+        if (preset.delayBeats !== undefined) delayInput.value = preset.delayBeats;
+        
+        if (preset.clicksEnabled !== undefined) {
+          clicksEnabled = preset.clicksEnabled;
+          countInToggle.innerText = clicksEnabled ? 'Clicks On' : 'Clicks Off';
+          countInToggle.style.backgroundColor = clicksEnabled ? '#3ea6ff' : '#555555';
+        }
+      }
+    });
+  }
+
+  loadPreset();
+
   function playClick(time, isFirstBeat) {
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     
     osc.connect(gainNode);
     gainNode.connect(audioCtx.destination);
-    
     osc.frequency.value = isFirstBeat ? 1000 : 800;
     
     gainNode.gain.setValueAtTime(1, time);
@@ -106,39 +158,58 @@ function attachListeners(video) {
       countInToggle.innerText = 'Clicks Off';
       countInToggle.style.backgroundColor = '#555555';
     }
+    savePreset();
   });
-  
+
   speedSlider.addEventListener('input', (e) => {
     currentSpeed = parseFloat(e.target.value);
     video.playbackRate = currentSpeed;
     speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
-    
     bpmInput.value = Math.round(baseBpm * currentSpeed);
   });
+  
+  speedSlider.addEventListener('change', savePreset);
 
   bpmInput.addEventListener('change', (e) => {
     const newBpm = parseInt(e.target.value);
     if (!isNaN(newBpm)) {
       baseBpm = newBpm / currentSpeed;
+      savePreset();
     }
   });
+
+  delayInput.addEventListener('change', savePreset);
 
   btnA.addEventListener('click', () => {
     loopStart = video.currentTime;
     btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
-    if (audioCtx.state === 'suspended') audioCtx.resume(); 
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    savePreset();
   });
 
   btnB.addEventListener('click', () => {
     loopEnd = video.currentTime;
     btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
+    savePreset();
+  });
+
+  btnClear.addEventListener('click', () => {
+    loopStart = null;
+    loopEnd = null;
+    isDelaying = false;
+    btnA.innerText = 'Set A (-)';
+    btnB.innerText = 'Set B (-)';
+    
+    const videoId = getVideoId();
+    if (videoId) chrome.storage.local.remove(videoId);
   });
 
   btnAMinus.addEventListener('click', () => {
     if (loopStart !== null) {
       loopStart = Math.max(0, loopStart - 0.01);
       btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
-      video.currentTime = loopStart; 
+      video.currentTime = loopStart;
+      savePreset();
     }
   });
 
@@ -148,6 +219,7 @@ function attachListeners(video) {
       if (loopEnd !== null && loopStart >= loopEnd) loopStart = loopEnd - 0.01;
       btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
       video.currentTime = loopStart;
+      savePreset();
     }
   });
 
@@ -157,6 +229,7 @@ function attachListeners(video) {
       if (loopStart !== null && loopEnd <= loopStart) loopEnd = loopStart + 0.01;
       btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
       video.currentTime = loopEnd;
+      savePreset();
     }
   });
 
@@ -165,46 +238,32 @@ function attachListeners(video) {
       loopEnd += 0.01;
       btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
       video.currentTime = loopEnd;
+      savePreset();
     }
   });
-
-  btnClear.addEventListener('click', () => {
-    loopStart = null;
-    loopEnd = null;
-    isDelaying = false;
-    btnA.innerText = 'Set A (-)';
-    btnB.innerText = 'Set B (-)';
-  });
-
-  // --- KEYBOARD SHORTCUTS ---
+  
   document.addEventListener('keydown', (e) => {
     const activeElement = document.activeElement.tagName.toLowerCase();
-    if (activeElement === 'input' || activeElement === 'textarea') {
-      return; 
-    }
+    if (activeElement === 'input' || activeElement === 'textarea') return; 
 
     if (e.key === 'a' || e.key === 'd') {
-      
       let step = e.key === 'd' ? 0.05 : -0.05;
       let newSpeed = currentSpeed + step;
-
       newSpeed = Math.max(0.10, Math.min(1.5, newSpeed));
 
       if (newSpeed !== currentSpeed) {
         currentSpeed = newSpeed;
         video.playbackRate = currentSpeed;
-        
         speedSlider.value = currentSpeed.toFixed(2);
         speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
-        
         bpmInput.value = Math.round(baseBpm * currentSpeed);
+        savePreset();
       }
     }
   });
 
   video.addEventListener('timeupdate', () => {
     if (loopStart !== null && loopEnd !== null && loopEnd > loopStart) {
-      
       if (video.currentTime >= loopEnd && !isDelaying) {
         isDelaying = true;
         video.pause(); 
