@@ -44,7 +44,7 @@ function injectUI(video, anchor) {
       <div class="rr-divider"></div>
 
       <label for="rr-speed">Speed:</label>
-      <input type="range" id="rr-speed" min="0.25" max="1.5" step="0.05" value="1.0">
+      <input type="range" id="rr-speed" min="0.10" max="1.5" step="0.05" value="1.0">
       <span id="rr-speed-display">1.00x</span>
     </div>
   `;
@@ -174,6 +174,32 @@ function attachListeners(video) {
     isDelaying = false;
     btnA.innerText = 'Set A (-)';
     btnB.innerText = 'Set B (-)';
+  });
+
+  // --- KEYBOARD SHORTCUTS ---
+  document.addEventListener('keydown', (e) => {
+    const activeElement = document.activeElement.tagName.toLowerCase();
+    if (activeElement === 'input' || activeElement === 'textarea') {
+      return; 
+    }
+
+    if (e.key === 'a' || e.key === 'd') {
+      
+      let step = e.key === 'd' ? 0.05 : -0.05;
+      let newSpeed = currentSpeed + step;
+
+      newSpeed = Math.max(0.10, Math.min(1.5, newSpeed));
+
+      if (newSpeed !== currentSpeed) {
+        currentSpeed = newSpeed;
+        video.playbackRate = currentSpeed;
+        
+        speedSlider.value = currentSpeed.toFixed(2);
+        speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+        
+        bpmInput.value = Math.round(baseBpm * currentSpeed);
+      }
+    }
   });
 
   video.addEventListener('timeupdate', () => {
