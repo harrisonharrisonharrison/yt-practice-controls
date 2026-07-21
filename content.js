@@ -151,7 +151,7 @@ function attachListeners(video) {
   
   let savedVideoPresets = []; 
 
-  function loadDropdown() {
+  function loadDropdown(indexToSelect = 'none') {
     const videoId = getVideoId();
     if (!videoId) return;
 
@@ -169,6 +169,8 @@ function attachListeners(video) {
         opt.innerText = p.name;
         presetSelect.appendChild(opt);
       });
+
+      presetSelect.value = indexToSelect;
     });
   }
 
@@ -188,8 +190,7 @@ function attachListeners(video) {
         
         savedVideoPresets.push(newPreset);
         chrome.storage.local.set({ [videoId + '_presets']: savedVideoPresets }, () => {
-          loadDropdown();
-          presetSelect.value = savedVideoPresets.length - 1; 
+          loadDropdown(savedVideoPresets.length - 1); 
         });
       } else {
         presetSelect.value = 'none'; 
