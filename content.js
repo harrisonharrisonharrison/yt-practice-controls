@@ -46,6 +46,10 @@ function injectUI(video, anchor) {
       <label for="rr-speed">Speed:</label>
       <input type="range" id="rr-speed" min="0.10" max="1.5" step="0.05" value="1.0">
       <span id="rr-speed-display">1.00x</span>
+
+      <div style="margin-left: auto; font-weight: bold; color: #3ea6ff; padding-left: 16px;">
+        Reps This Session: <span id="rr-rep-count">0</span>
+      </div>
     </div>
   `;
 
@@ -60,7 +64,8 @@ function attachListeners(video) {
   const btnClear = document.querySelector('#rr-clear');
   const speedSlider = document.querySelector('#rr-speed');
   const speedDisplay = document.querySelector('#rr-speed-display');
-  
+  const repCountDisplay = document.querySelector('#rr-rep-count');
+
   const bpmInput = document.querySelector('#rr-bpm');
   const delayInput = document.querySelector('#rr-delay');
   const countInToggle = document.querySelector('#rr-countin-toggle');
@@ -74,6 +79,7 @@ function attachListeners(video) {
   let loopEnd = null;
   let isDelaying = false; 
   let clicksEnabled = true;
+  let repsSession = 0;
   
   let currentSpeed = parseFloat(speedSlider.value);
   let baseBpm = parseInt(bpmInput.value) / currentSpeed; 
@@ -200,6 +206,9 @@ function attachListeners(video) {
     btnA.innerText = 'Set A (-)';
     btnB.innerText = 'Set B (-)';
     
+    repsSession = 0;
+    repCountDisplay.innerText = repsSession;
+    
     const videoId = getVideoId();
     if (videoId) chrome.storage.local.remove(videoId);
   });
@@ -263,6 +272,9 @@ function attachListeners(video) {
     countInToggle.innerText = 'Clicks On';
     countInToggle.style.backgroundColor = '#3ea6ff';
     
+    repsSession = 0;
+    if (repCountDisplay) repCountDisplay.innerText = repsSession;
+    
     loadPreset();
   }
 
@@ -294,8 +306,12 @@ function attachListeners(video) {
     if (loopStart !== null && loopEnd !== null && loopEnd > loopStart) {
       if (video.currentTime >= loopEnd && !isDelaying) {
         isDelaying = true;
+        
+        repsSession++;
+        repCountDisplay.innerText = repsSession;
+        
         video.pause(); 
-        video.currentTime = loopStart; 
+        video.currentTime = loopStart;
         
         const bpm = parseInt(bpmInput.value);
         const beatsToWait = parseInt(delayInput.value);
