@@ -47,6 +47,13 @@ function injectUI(video, anchor) {
       <input type="range" id="rr-speed" min="0.10" max="1.5" step="0.05" value="1.0">
       <span id="rr-speed-display">1.00x</span>
 
+      <label>Presets:</label>
+      <select id="rr-preset-select" style="background: #121212; color: #fff; border: 1px solid #3d3d3d; padding: 6px; border-radius: 4px; max-width: 110px; cursor: pointer;">
+        <option value="none">-- Select --</option>
+        <option value="save_new">+ Save Current...</option>
+      </select>
+      <button id="rr-delete-preset" title="Delete selected preset">🗑️</button>
+
       <div style="margin-left: auto; font-weight: bold; color: #3ea6ff; padding-left: 16px;">
         Reps This Session: <span id="rr-rep-count">0</span>
       </div>
