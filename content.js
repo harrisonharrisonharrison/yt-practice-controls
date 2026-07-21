@@ -382,6 +382,7 @@ function attachListeners(video) {
     if (repCountDisplay) repCountDisplay.innerText = repsSession;
     
     loadPreset();
+    loadDropdown();
   }
 
   window.addEventListener('yt-navigate-finish', () => {
