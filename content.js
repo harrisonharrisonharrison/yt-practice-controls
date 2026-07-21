@@ -146,6 +146,105 @@ function attachListeners(video) {
 
   loadPreset();
 
+  const presetSelect = document.querySelector('#rr-preset-select');
+  const btnDeletePreset = document.querySelector('#rr-delete-preset');
+  
+  let savedVideoPresets = []; 
+
+  function loadDropdown() {
+    const videoId = getVideoId();
+    if (!videoId) return;
+
+    chrome.storage.local.get([videoId + '_presets'], (result) => {
+      savedVideoPresets = result[videoId + '_presets'] || [];
+      
+      presetSelect.innerHTML = `
+        <option value="none">-- Select --</option>
+        <option value="save_new">+ Save Current...</option>
+      `;
+      
+      savedVideoPresets.forEach((p, index) => {
+        const opt = document.createElement('option');
+        opt.value = index; 
+        opt.innerText = p.name;
+        presetSelect.appendChild(opt);
+      });
+    });
+  }
+
+  loadDropdown();
+
+  presetSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const videoId = getVideoId();
+
+    if (val === 'save_new') {
+      const name = prompt("Name this loop preset (e.g., Solo Fast):", `Loop ${savedVideoPresets.length + 1}`);
+      
+      if (name) {
+        const newPreset = {
+          name, loopStart, loopEnd, speed: currentSpeed, baseBpm, delayBeats: delayInput.value, clicksEnabled
+        };
+        
+        savedVideoPresets.push(newPreset);
+        chrome.storage.local.set({ [videoId + '_presets']: savedVideoPresets }, () => {
+          loadDropdown();
+          presetSelect.value = savedVideoPresets.length - 1; 
+        });
+      } else {
+        presetSelect.value = 'none'; 
+      }
+      
+    } else if (val !== 'none') {
+      const preset = savedVideoPresets[parseInt(val)];
+      if (preset) {
+        loopStart = preset.loopStart;
+        loopEnd = preset.loopEnd;
+        
+        btnA.innerText = loopStart !== null ? `Set A (${loopStart.toFixed(2)}s)` : 'Set A (-)';
+        btnB.innerText = loopEnd !== null ? `Set B (${loopEnd.toFixed(2)}s)` : 'Set B (-)';
+        
+        currentSpeed = preset.speed || 1.0;
+        video.playbackRate = currentSpeed;
+        speedSlider.value = currentSpeed;
+        speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+        
+        baseBpm = preset.baseBpm || 120;
+        bpmInput.value = Math.round(baseBpm * currentSpeed);
+        if (preset.delayBeats !== undefined) delayInput.value = preset.delayBeats;
+        
+        if (preset.clicksEnabled !== undefined) {
+          clicksEnabled = preset.clicksEnabled;
+          countInToggle.innerText = clicksEnabled ? '🔊 Clicks On' : '🔇 Clicks Off';
+          countInToggle.style.backgroundColor = clicksEnabled ? '#3ea6ff' : '#555555';
+        }
+        
+        if (loopStart !== null) video.currentTime = loopStart;
+        
+        savePreset();
+      }
+    }
+  });
+
+  btnDeletePreset.addEventListener('click', () => {
+    const val = presetSelect.value;
+    if (val === 'none' || val === 'save_new') {
+      alert("Please select a saved preset to delete.");
+      return;
+    }
+    
+    const presetName = savedVideoPresets[parseInt(val)].name;
+    if (confirm(`Are you sure you want to delete the preset "${presetName}"?`)) {
+      savedVideoPresets.splice(parseInt(val), 1); 
+      
+      const videoId = getVideoId();
+      chrome.storage.local.set({ [videoId + '_presets']: savedVideoPresets }, () => {
+        loadDropdown();
+        presetSelect.value = 'none';
+      });
+    }
+  });
+
   function playClick(time, isFirstBeat) {
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
