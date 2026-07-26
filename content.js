@@ -46,7 +46,7 @@ function injectUI(video, anchor) {
       <div style="display: flex; flex-direction: column; align-items: center;">
         <div>
           <label for="rr-speed">Speed:</label>
-          <input type="range" id="rr-speed" min="0.10" max="1.5" step="0.05" value="1.0">
+          <input type="range" id="rr-speed" min="0.10" max="2" step="0.05" value="1.0">
           <span id="rr-speed-display">1.00x</span>
         </div>
         <div style="font-size: 11px; color: #aaaaaa; margin-top: 4px;">
