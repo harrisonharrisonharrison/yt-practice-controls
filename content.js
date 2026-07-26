@@ -43,9 +43,16 @@ function injectUI(video, anchor) {
       
       <div class="rr-divider"></div>
 
-      <label for="rr-speed">Speed:</label>
-      <input type="range" id="rr-speed" min="0.10" max="1.5" step="0.05" value="1.0">
-      <span id="rr-speed-display">1.00x</span>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div>
+          <label for="rr-speed">Speed:</label>
+          <input type="range" id="rr-speed" min="0.10" max="1.5" step="0.05" value="1.0">
+          <span id="rr-speed-display">1.00x</span>
+        </div>
+        <div style="font-size: 11px; color: #aaaaaa; margin-top: 4px;">
+          Default: <input type="number" id="rr-default-speed" value="1.0" min="0.10" max="2" step="0.05" style="width: 45px; padding: 2px; font-size: 11px;">x
+        </div>
+      </div>
 
       <label>Presets:</label>
       <select id="rr-preset-select" style="background: #121212; color: #fff; border: 1px solid #3d3d3d; padding: 6px; border-radius: 4px; max-width: 110px; cursor: pointer;">
@@ -71,6 +78,7 @@ function attachListeners(video) {
   const btnClear = document.querySelector('#rr-clear');
   const speedSlider = document.querySelector('#rr-speed');
   const speedDisplay = document.querySelector('#rr-speed-display');
+  const defaultSpeedInput = document.querySelector('#rr-default-speed');
   const repCountDisplay = document.querySelector('#rr-rep-count');
 
   const bpmInput = document.querySelector('#rr-bpm');
@@ -90,9 +98,19 @@ function attachListeners(video) {
   
   let currentSpeed = parseFloat(speedSlider.value);
   let baseBpm = parseInt(bpmInput.value) / currentSpeed; 
+  
+  let globalDefaultSpeed = 1.0;
+  let targetPresetSpeed = 1.0; 
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+  function applySpeed(newSpeed) {
+    currentSpeed = newSpeed;
+    video.playbackRate = currentSpeed;
+    speedSlider.value = currentSpeed.toFixed(2);
+    speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+    bpmInput.value = Math.round(baseBpm * currentSpeed);
+  }
   
   function getVideoId() {
     return new URLSearchParams(window.location.search).get('v');
@@ -126,10 +144,8 @@ function attachListeners(video) {
         if (loopStart !== null) btnA.innerText = `Set A (${loopStart.toFixed(2)}s)`;
         if (loopEnd !== null) btnB.innerText = `Set B (${loopEnd.toFixed(2)}s)`;
         
-        currentSpeed = preset.speed || 1.0;
-        video.playbackRate = currentSpeed;
-        speedSlider.value = currentSpeed;
-        speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+        targetPresetSpeed = preset.speed || 1.0;
+        applySpeed(targetPresetSpeed);
         
         baseBpm = preset.baseBpm || 120;
         bpmInput.value = Math.round(baseBpm * currentSpeed);
@@ -140,11 +156,25 @@ function attachListeners(video) {
           countInToggle.innerText = clicksEnabled ? 'Clicks On' : 'Clicks Off';
           countInToggle.style.backgroundColor = clicksEnabled ? '#3ea6ff' : '#555555';
         }
+      } else {
+        targetPresetSpeed = 1.0;
+        applySpeed(globalDefaultSpeed);
       }
     });
   }
 
-  loadPreset();
+  function init() {
+    chrome.storage.local.get(['global_default_speed'], (res) => {
+      if (res.global_default_speed) {
+        globalDefaultSpeed = res.global_default_speed;
+        defaultSpeedInput.value = globalDefaultSpeed.toFixed(2);
+      }
+      loadPreset();
+      loadDropdown();
+    });
+  }
+  
+  init(); 
 
   const presetSelect = document.querySelector('#rr-preset-select');
   const btnDeletePreset = document.querySelector('#rr-delete-preset');
@@ -173,8 +203,6 @@ function attachListeners(video) {
       presetSelect.value = indexToSelect;
     });
   }
-
-  loadDropdown();
 
   presetSelect.addEventListener('change', (e) => {
     const val = e.target.value;
@@ -205,10 +233,8 @@ function attachListeners(video) {
         btnA.innerText = loopStart !== null ? `Set A (${loopStart.toFixed(2)}s)` : 'Set A (-)';
         btnB.innerText = loopEnd !== null ? `Set B (${loopEnd.toFixed(2)}s)` : 'Set B (-)';
         
-        currentSpeed = preset.speed || 1.0;
-        video.playbackRate = currentSpeed;
-        speedSlider.value = currentSpeed;
-        speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
+        targetPresetSpeed = preset.speed || 1.0;
+        applySpeed(targetPresetSpeed);
         
         baseBpm = preset.baseBpm || 120;
         bpmInput.value = Math.round(baseBpm * currentSpeed);
@@ -274,14 +300,18 @@ function attachListeners(video) {
     savePreset();
   });
 
-  speedSlider.addEventListener('input', (e) => {
-    currentSpeed = parseFloat(e.target.value);
-    video.playbackRate = currentSpeed;
-    speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
-    bpmInput.value = Math.round(baseBpm * currentSpeed);
-  });
-  
+  speedSlider.addEventListener('input', (e) => applySpeed(parseFloat(e.target.value)));
   speedSlider.addEventListener('change', savePreset);
+
+  defaultSpeedInput.addEventListener('change', (e) => {
+    let newDefault = parseFloat(e.target.value);
+    if (!isNaN(newDefault)) {
+      newDefault = Math.max(0.10, Math.min(2.0, newDefault)); 
+      globalDefaultSpeed = newDefault;
+      defaultSpeedInput.value = globalDefaultSpeed.toFixed(2);
+      chrome.storage.local.set({ 'global_default_speed': globalDefaultSpeed });
+    }
+  });
 
   bpmInput.addEventListener('change', (e) => {
     const newBpm = parseInt(e.target.value);
@@ -366,11 +396,6 @@ function attachListeners(video) {
     btnA.innerText = 'Set A (-)';
     btnB.innerText = 'Set B (-)';
     
-    currentSpeed = 1.0;
-    video.playbackRate = currentSpeed;
-    speedSlider.value = 1.0;
-    speedDisplay.innerText = '1.00x';
-    
     baseBpm = 120;
     bpmInput.value = 120;
     delayInput.value = 4;
@@ -382,8 +407,7 @@ function attachListeners(video) {
     repsSession = 0;
     if (repCountDisplay) repCountDisplay.innerText = repsSession;
     
-    loadPreset();
-    loadDropdown();
+    init(); 
   }
 
   window.addEventListener('yt-navigate-finish', () => {
@@ -394,19 +418,26 @@ function attachListeners(video) {
     const activeElement = document.activeElement.tagName.toLowerCase();
     if (activeElement === 'input' || activeElement === 'textarea') return; 
 
-    if (e.key === 'a' || e.key === 'd') {
-      let step = e.key === 'd' ? 0.05 : -0.05;
+    if (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'd') {
+      let step = e.key.toLowerCase() === 'd' ? 0.05 : -0.05;
       let newSpeed = currentSpeed + step;
       newSpeed = Math.max(0.10, Math.min(1.5, newSpeed));
 
       if (newSpeed !== currentSpeed) {
-        currentSpeed = newSpeed;
-        video.playbackRate = currentSpeed;
-        speedSlider.value = currentSpeed.toFixed(2);
-        speedDisplay.innerText = `${currentSpeed.toFixed(2)}x`;
-        bpmInput.value = Math.round(baseBpm * currentSpeed);
+        applySpeed(newSpeed);
+        targetPresetSpeed = newSpeed; 
         savePreset();
       }
+    }
+
+    if (e.key.toLowerCase() === 'g') {
+      if (currentSpeed === globalDefaultSpeed) {
+        applySpeed(targetPresetSpeed);
+      } else {
+        targetPresetSpeed = currentSpeed;
+        applySpeed(globalDefaultSpeed);
+      }
+      savePreset();
     }
   });
 
