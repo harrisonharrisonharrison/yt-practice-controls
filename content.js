@@ -1,11 +1,16 @@
 function waitForElements() {
+  if (window.location.pathname !== '/watch') {
+    setTimeout(waitForElements, 1000);
+    return;
+  }
+
   const video = document.querySelector('video');
   const anchor = document.querySelector('#below'); 
 
   if (video && anchor) {
     injectUI(video, anchor);
   } else {
-    setTimeout(waitForElements, 500); 
+    setTimeout(waitForElements, 500);
   }
 }
 
@@ -411,7 +416,15 @@ function attachListeners(video) {
   }
 
   window.addEventListener('yt-navigate-finish', () => {
-    setTimeout(handleVideoChange, 500); 
+    if (window.location.pathname !== '/watch') {
+      const panel = document.querySelector('#riff-repeater-panel');
+      if (panel) panel.style.display = 'none';
+      return;
+    }
+    const panel = document.querySelector('#riff-repeater-panel');
+    if (panel) panel.style.display = 'block';
+
+    setTimeout(handleVideoChange, 500);
   });
 
   document.addEventListener('keydown', (e) => {
